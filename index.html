@@ -202,10 +202,8 @@
         
         // --- YouTube Player Globals ---
         let player;
-        // The music button now references the floating element
         const musicButton = document.getElementById('floating-music-toggle'); 
         const musicIcon = document.getElementById('music-icon');
-
         let isPlaying = false; 
         
         // Function to set the icon based on playback state (SVG paths)
@@ -225,7 +223,7 @@
                 player = new YT.Player('youtube-player', {
                     events: {
                         'onReady': onPlayerReady,
-                        'onStateChange': onPlayerStateChange,
+                        // We will no longer rely on onStateChange for button updates
                         'onError': onPlayerError
                     }
                 });
@@ -237,38 +235,19 @@
         function onPlayerReady(event) {
             console.log("YouTube Player is ready.");
             
-            // Due to browser autoplay restrictions, we must start it muted and paused.
-            // Start muted video in the background but keep it paused initially until the user clicks
-            event.target.mute();
-            // Start playing only to load the video and handle the unMute/Play logic on click
-            event.target.playVideo(); 
-            event.target.pauseVideo(); 
+            // NEW FIX: Only mute the video to prepare it for a user-initiated start.
+            // We do NOT attempt to play or pause here, which often triggers browser blocking.
+            event.target.mute(); 
             
             // Initialize icon to 'Play' 
-            setMusicIcon(false); // Player is technically playing, but muted and considered 'paused' for UX
+            setMusicIcon(false);
+            
+             // Start the video on load (still muted) to ensure the stream is buffered. 
+             // This is generally allowed by browsers.
+             event.target.playVideo(); 
         }
         
-        // Function to handle player state changes (like playing, paused, ended)
-        function onPlayerStateChange(event) {
-            // Only update state if the user has explicitly clicked the button (unmuted/muted)
-            if (!player) return;
-
-            const isCurrentlyUnmuted = player.isMuted() === false;
-            
-            // The UX logic: If the video is playing AND unmuted, we show 'Pause' icon (isPlaying=true).
-            // If the video is muted or paused, we show 'Play' icon (isPlaying=false).
-            isPlaying = (event.data === YT.PlayerState.PLAYING && isCurrentlyUnmuted);
-            
-            setMusicIcon(isPlaying);
-
-            // Manual loop check (in case loop=1 fails or is interrupted)
-            if (event.data === YT.PlayerState.ENDED) { 
-                 player.seekTo(0);
-                 if (isCurrentlyUnmuted) {
-                    player.playVideo();
-                 }
-            }
-        }
+        // We removed onPlayerStateChange for simplicity, relying on the click handler.
 
         function onPlayerError(event) {
             console.error("YouTube Player Error:", event.data);
@@ -283,19 +262,22 @@
             }
             
             try {
+                // If we are currently unmuted (i.e., playing with sound)
                 if (player.isMuted() === false) {
-                    // It is currently playing (unmuted), so pause/mute it
+                    // Action: Mute and Pause the playback
                     player.mute();
                     player.pauseVideo();
                     isPlaying = false;
                     showUserMessage("Music paused.");
                 } else {
-                    // It is currently muted/paused, so unmute/play it
+                    // Action: Unmute and Play (This is the user gesture that enables sound)
                     player.unMute();
-                    player.playVideo();
+                    player.playVideo(); // This is the crucial line to start playback
                     isPlaying = true;
                     showUserMessage("Music started successfully!");
                 }
+                
+                // Manually update the icon based on the new state
                 setMusicIcon(isPlaying);
             } catch (e) {
                 console.error("Failed to toggle music:", e);
