@@ -91,6 +91,29 @@
             pointer-events: none;
             z-index: -10;
         }
+        
+        /* Custom style for the music start button */
+        #start-music-btn {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 60;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #1A1A1A; /* Dark text */
+            background-color: #FF69B4; /* Hot Pink */
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(255, 105, 180, 0.8);
+        }
+
+        #start-music-btn:hover {
+            background-color: #FF88C7;
+            box-shadow: 0 0 15px #FF69B4;
+        }
     </style>
 </head>
 <body class="bg-primary-dark flex items-center justify-center min-h-screen p-4 font-sans relative">
@@ -100,13 +123,16 @@
     
     <!-- Floating Particles Container (Empty now, but kept for JS compatibility if needed later) -->
     <div id="particles-container" class="absolute inset-0 z-[-1]"></div>
+    
+    <!-- SPOT 1: Music Start Button -->
+    <!-- Initially visible, hidden after clicking (handled in JS) -->
+    <button id="start-music-btn" style="display: none;">▶ Start Music</button>
 
     <!-- SPOT 2: Background Music YouTube Iframe (Hidden) -->
-    <!-- Parameters: autoplay=1 (attempts to play), loop=1 (loops the song), 
-         playlist=lSD_L-xic9o (required for loop to work), mute=1 (required for autoplay success) -->
+    <!-- Note: We are using the YouTube API script below to control the player, and removed the mute=1 parameter -->
     <iframe 
         id="youtube-player" 
-        src="https://www.youtube.com/embed/lSD_L-xic9o?autoplay=1&loop=1&playlist=lSD_L-xic9o&mute=1&controls=0&modestbranding=1&rel=0" 
+        src="https://www.youtube.com/embed/lSD_L-xic9o?enablejsapi=1&autoplay=1&loop=1&playlist=lSD_L-xic9o&controls=0&modestbranding=1&rel=0" 
         frameborder="0" 
         allow="autoplay; encrypted-media" 
         allowfullscreen>
@@ -174,14 +200,65 @@
         </div>
     </div>
     
-    <!-- SPOT 1: Removed Controls Panel HTML -->
+    <!-- Load the YouTube Iframe API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
 
     <script type="module">
-        // NO LOCAL VARIABLES ARE USED IN THIS BLOCK AS REQUESTED.
-        // Firebase functions are accessed via window.firebase, and initialized instances 
-        // (db, auth, userId) are stored on the global window object.
+        // Global variables for Firebase access (stored on window)
+        // Global variables for Firebase access (stored on window)
+        // window.firebase, window.db, window.auth, window.userId are initialized in initializeApp()
+        
+        // --- YouTube Player Globals ---
+        let player;
+        const musicButton = document.getElementById('start-music-btn');
 
-        // --- Core Application Logic ---
+        // This function is called automatically by the YouTube Iframe API script
+        window.onYouTubeIframeAPIReady = function() {
+            // Get the iframe element
+            const iframe = document.getElementById('youtube-player');
+            if (iframe) {
+                player = new YT.Player('youtube-player', {
+                    // Set the player variable from the global object
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onError': onPlayerError
+                    }
+                });
+            } else {
+                console.error("YouTube iframe element not found.");
+            }
+        };
+
+        function onPlayerReady(event) {
+            console.log("YouTube Player is ready.");
+            // Show the button only after the player is ready, allowing user to start music
+            musicButton.style.display = 'block';
+        }
+
+        function onPlayerError(event) {
+            console.error("YouTube Player Error:", event.data);
+            showUserMessage("Music playback failed. (Error code: " + event.data + ")", true);
+        }
+        
+        // Event listener to start music on button click
+        musicButton.addEventListener('click', () => {
+            if (player) {
+                try {
+                    // Play the video and un-hide the button
+                    player.playVideo();
+                    musicButton.style.display = 'none'; // Hide the button after starting
+                    showUserMessage("Music started successfully!");
+                } catch (e) {
+                    console.error("Failed to start music on click:", e);
+                    showUserMessage("Could not start music. Try clicking again.", true);
+                }
+            } else {
+                showUserMessage("Music player not yet initialized.", true);
+            }
+        });
+
+
+        // --- Core Application Logic (Rest of the previous code) ---
 
         // Display user message in a fixed box (replacing alert/confirm)
         function showUserMessage(message, isError = false) {
@@ -359,8 +436,8 @@
             updateUI();
             renderLinks();
             incrementViewCount();
-            // Removed startNameTypingAnimation()
-            startTitleTypingAnimation(); // Keep the browser tab animation
+            // startTitleTypingAnimation is handled globally
+            startTitleTypingAnimation(); 
         };
 
     </script>
