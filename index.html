@@ -12,12 +12,16 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Also import setLogLevel for debugging
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
 
         // Global variables for Firebase access (stored on window)
         window.firebase = {
             initializeApp,
             getAuth, signInAnonymously, signInWithCustomToken,
-            getFirestore, doc, getDoc, setDoc, updateDoc, increment, runTransaction
+            getFirestore, doc, getDoc, setDoc, updateDoc, increment, runTransaction,
+            setLogLevel
         };
     </script>
 
@@ -142,7 +146,7 @@
         <!-- Large Profile Image -->
         <div class="flex justify-center mb-6">
             <div class="relative w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-gray-700 to-accent-hot-pink shadow-glitch">
-                <img id="main-profile-pic" src="https://placehold.co/120x120/1A1A1A/FFFFFF?text=PFP" alt="Profile Picture" class="w-full h-full object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
+                <img id="main-profile-pic" src="https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png" alt="Profile Picture" class="w-full h-full object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
                 <div class="absolute inset-0 rounded-full border-2 border-accent-hot-pink/40"></div>
             </div>
         </div>
@@ -161,7 +165,7 @@
         <div class="flex justify-center mb-10">
             <div class="flex items-center space-x-3 p-3 bg-black/40 border border-accent-hot-pink/20 rounded-full shadow-inner">
                 <!-- Small Profile Image -->
-                <img id="mini-profile-pic" src="https://placehold.co/40x40/1A1A1A/FFFFFF?text=PFP" alt="Mini Profile" class="w-10 h-10 object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
+                <img id="mini-profile-pic" src="https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png" alt="Mini Profile" class="w-10 h-10 object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
                 
                 <div class="text-left">
                     <div class="flex items-center space-x-2">
@@ -179,8 +183,6 @@
             <!-- Dynamic Link Buttons will be injected here by JavaScript -->
         </div>
 
-        <!-- NOTE: Inline music controls are removed since we are using the floating button now -->
-        
         <!-- View Count Footer -->
         <div class="absolute bottom-4 left-4 flex items-center space-x-1 text-gray-500 text-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -236,8 +238,11 @@
             console.log("YouTube Player is ready.");
             
             // Due to browser autoplay restrictions, we must start it muted and paused.
+            // Start muted video in the background but keep it paused initially until the user clicks
             event.target.mute();
-            event.target.playVideo(); // Start muted video in the background
+            // Start playing only to load the video and handle the unMute/Play logic on click
+            event.target.playVideo(); 
+            event.target.pauseVideo(); 
             
             // Initialize icon to 'Play' 
             setMusicIcon(false); // Player is technically playing, but muted and considered 'paused' for UX
@@ -419,7 +424,8 @@
             document.getElementById('mini-profile-name').textContent = "TEXVERSA";
             document.getElementById('state-emoji').textContent = "💖";
             document.getElementById('last-seen-time').textContent = "💗H O P E";
-
+            
+            // Set image sources here to prevent the placeholder from flashing
             document.getElementById('main-profile-pic').src = discordAvatarUrl;
             document.getElementById('mini-profile-pic').src = discordAvatarUrl;
 
@@ -438,9 +444,25 @@
 
         // Initialize Firebase services
         async function initializeApp() {
+            // Enable Firestore debug logging
+            if (window.firebase && window.firebase.setLogLevel) {
+                window.firebase.setLogLevel('Debug');
+            }
+
             try {
-                window.firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-                window.app = window.firebase.initializeApp(window.firebaseConfig);
+                // FIX: Check if __firebase_config is a valid JSON string before parsing
+                const configString = typeof __firebase_config === 'string' ? __firebase_config : '{}';
+                const firebaseConfig = JSON.parse(configString);
+
+                // If the config object is empty (no apiKey), skip full initialization, 
+                // but still allow the app to run in offline mode.
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    console.warn("Firebase config not available. Running in offline/anonymous mode.");
+                    document.getElementById('view-count').textContent = 'Offline';
+                    return; // Stop initialization
+                }
+                
+                window.app = window.firebase.initializeApp(firebaseConfig);
                 window.db = window.firebase.getFirestore(window.app);
                 window.auth = window.firebase.getAuth(window.app);
                 
@@ -452,19 +474,25 @@
                     console.log("Firebase: Signed in anonymously.");
                 }
                 window.userId = window.auth.currentUser?.uid || crypto.randomUUID();
+
+                // If initialization succeeds, proceed to increment view count
+                incrementViewCount();
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 showUserMessage("Error: Could not connect to the database. View count may not update. Check console for details.", true); 
+                document.getElementById('view-count').textContent = 'Error';
             }
         }
 
         // Initialize everything on load
         window.onload = async () => {
-            await initializeApp(); // Initialize global Firebase instances first
+            // NOTE: updateUI and renderLinks are called before initializeApp
+            // so the profile card looks complete while Firebase connects in the background.
             updateUI();
             renderLinks();
-            incrementViewCount();
-            // RE-IMPLEMENTED TITLE ANIMATION
+            await initializeApp(); // Initialize global Firebase instances and attempts auth/view count
+            
+            // Start the title animation after everything else
             startTitleTypingAnimation(); 
         };
 
