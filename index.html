@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tactical Profile Card</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SPOT 4: Firebase Imports (Firestore & Auth) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase access (stored on window)
+        window.firebase = {
+            initializeApp,
+            getAuth, signInAnonymously, signInWithCustomToken,
+            getFirestore, doc, getDoc, setDoc, updateDoc, increment, runTransaction
+        };
+    </script>
+
+    <!-- Configure Tailwind for the dark, pink-accent theme -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-dark': '#0A0A0A',  // Main background black
+                        'card-dark': '#1A1A1A',     // Dark gray for card body
+                        'accent-hot-pink': '#FF69B4',    // Hot Pink for accents (high contrast)
+                        'accent-gray': '#E0E0E0',   // Light gray for text
+                        'status-light-pink': '#FFB6C1'   // Light Pink for online status glow
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        // Sharp, aggressive pink glow
+                        'glitch': '0 0 10px #FF69B4, 0 0 20px rgba(255, 105, 180, 0.5), 0 0 30px rgba(255, 105, 180, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom CSS for background -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
+        /* The image background for the whole page */
+        #background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Sets background size to 100% width and 100% height to stretch perfectly */
+            background-size: 100% 100%; 
+            background-position: center;
+            filter: brightness(0.4) contrast(1.5);
+            z-index: -2;
+        }
+
+        /* Custom style for link buttons */
+        .link-button {
+            transition: all 0.2s;
+            box-shadow: 0 0 5px rgba(255, 105, 180, 0.5);
+        }
+
+        .link-button:hover {
+            box-shadow: 0 0 15px #FF69B4;
+            transform: translateY(-2px);
+        }
+
+        /* Custom style for the fixed message box (replacing alert) */
+        #message-box {
+            position: fixed;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="bg-primary-dark flex items-center justify-center min-h-screen p-4 font-sans relative">
+
+    <!-- Background Image Container -->
+    <div id="background-container"></div>
+    
+    <!-- Floating Particles Container (Empty now, but kept for JS compatibility if needed later) -->
+    <div id="particles-container" class="absolute inset-0 z-[-1]"></div>
+
+    <!-- SPOT 2: Background Music Audio Element (Updated source for a chill/jazz lo-fi vibe) -->
+    <audio id="background-audio" loop preload="auto">
+        <source src="https://cdn.pixabay.com/download/audio/2023/10/24/audio_3d1d75c8d2.mp3?filename=lo-fi-jazz-hip-hop-202324.mp3" type="audio/mp3">
+        Your browser does not support the audio element.
+    </audio>
+    <!-- Removed Music Play Button as requested -->
+    
+    <!-- Message Box for notifications (e.g., music start success/failure) -->
+    <div id="message-box" class="p-3 bg-card-dark text-accent-gray rounded-lg shadow-glitch border border-accent-hot-pink/50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
+
+    <!-- Main Profile Card -->
+    <div id="profile-card" class="relative w-full max-w-sm mx-auto p-6 md:p-8 bg-card-dark/90 backdrop-blur-md rounded-lg shadow-glitch border border-accent-hot-pink/50 transition-all duration-300">
+        
+        <!-- Large Profile Image -->
+        <div class="flex justify-center mb-6">
+            <div class="relative w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-gray-700 to-accent-hot-pink shadow-glitch">
+                <!-- Image uses object-cover to fit perfectly, styled for a tactical/dark look -->
+                <img id="main-profile-pic" src="https://placehold.co/120x120/1A1A1A/FFFFFF?text=PFP" alt="Profile Picture" class="w-full h-full object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
+                <div class="absolute inset-0 rounded-full border-2 border-accent-hot-pink/40"></div>
+            </div>
+        </div>
+
+        <!-- Username (HTML updated to default to TEXVERSA) -->
+        <div class="text-center mb-4">
+            <span id="profile-name" class="text-4xl font-black text-accent-hot-pink uppercase tracking-widest drop-shadow-xl">TEXVERSA</span>
+        </div>
+
+        <!-- State/Status Emoji -->
+        <div class="text-center mb-8">
+            <span id="state-emoji" class="text-4xl" role="img" aria-label="Status">💖</span>
+        </div>
+
+        <!-- Small Status Block (Online/Offline indicator) -->
+        <div class="flex justify-center mb-10">
+            <div class="flex items-center space-x-3 p-3 bg-black/40 border border-accent-hot-pink/20 rounded-full shadow-inner">
+                <!-- Small Profile Image -->
+                <img id="mini-profile-pic" src="https://placehold.co/40x40/1A1A1A/FFFFFF?text=PFP" alt="Mini Profile" class="w-10 h-10 object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
+                
+                <div class="text-left">
+                    <div class="flex items-center space-x-2">
+                        <!-- Mini Profile Name (HTML updated to default to TEXVERSA) -->
+                        <span id="mini-profile-name" class="text-sm font-semibold text-accent-gray">TEXVERSA</span>
+                        <!-- Online Status Indicator (Now Light Pink) -->
+                        <div class="w-2 h-2 bg-status-light-pink rounded-full shadow-lg shadow-status-light-pink/60 animate-pulse"></div>
+                    </div>
+                    <!-- UPDATED STATUS TEXT -->
+                    <span id="last-seen-time" class="text-xs text-status-light-pink">💗H O P E</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTE: The App Icons / Status Icons block was removed here -->
+        
+        <!-- SPOT 3: Link Buttons Container -->
+        <div id="link-buttons-container" class="space-y-4 mb-4">
+            <!-- Dynamic Link Buttons will be injected here by JavaScript -->
+        </div>
+
+        <!-- View Count Footer -->
+        <div class="absolute bottom-4 left-4 flex items-center space-x-1 text-gray-500 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span id="view-count">Loading...</span>
+        </div>
+    </div>
+    
+    <!-- SPOT 1: Removed Controls Panel HTML -->
+
+    <script type="module">
+        // NO LOCAL VARIABLES ARE USED IN THIS BLOCK AS REQUESTED.
+        // Firebase functions are accessed via window.firebase, and initialized instances 
+        // (db, auth, userId) are stored on the global window object.
+
+        // --- Core Application Logic ---
+
+        // Display user message in a fixed box (replacing alert/confirm)
+        function showUserMessage(message, isError = false) {
+            document.getElementById('message-box').textContent = message;
+            // Update message box color scheme
+            document.getElementById('message-box').className = `p-3 text-sm rounded-lg shadow-xl transition-opacity duration-300 opacity-100 pointer-events-auto ${isError ? 'bg-red-900 text-accent-hot-pink border border-accent-hot-pink' : 'bg-card-dark text-status-light-pink border border-status-light-pink'}`;
+            
+            setTimeout(() => {
+                document.getElementById('message-box').classList.add('opacity-0');
+                document.getElementById('message-box').classList.remove('pointer-events-auto');
+            }, 5000);
+        }
+
+        // View Count Logic
+        async function incrementViewCount() {
+            if (!window.db) {
+                document.getElementById('view-count').textContent = 'Offline';
+                return;
+            }
+            
+            // Hardcoding constants directly within the function call
+            // VIEW_COUNT_DOC_ID = 'main-profile-views'
+            // appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'
+            const viewDocRef = window.firebase.doc(window.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'profileViews', 'main-profile-views');
+
+            try {
+                // Use a transaction to safely increment the count and read the new value
+                await window.firebase.runTransaction(window.db, async (transaction) => {
+                    const viewDoc = await transaction.get(viewDocRef);
+                    
+                    if (viewDoc.exists()) {
+                        transaction.update(viewDocRef, { count: viewDoc.data().count + 1 });
+                        document.getElementById('view-count').textContent = (viewDoc.data().count + 1).toLocaleString();
+                    } else {
+                        // Document doesn't exist, create it
+                        transaction.set(viewDocRef, { count: 1, createdBy: window.userId });
+                        document.getElementById('view-count').textContent = 1;
+                    }
+                });
+            } catch (e) {
+                console.error("View count update failed:", e);
+                document.getElementById('view-count').textContent = 'Error';
+            }
+        }
+        
+        // Function to generate and render link buttons (No local variable for linkData array)
+        function renderLinks() {
+            document.getElementById('link-buttons-container').innerHTML = ''; // Clear existing
+            
+            // Hardcoding SVG content
+            document.getElementById('link-buttons-container').insertAdjacentHTML('beforeend', `
+                <a href="https://discord.gg/Bn3SJTpwJF" target="_blank" rel="noopener noreferrer" class="link-button flex items-center justify-center w-full p-4 bg-accent-hot-pink/10 text-accent-gray font-semibold rounded-lg border border-accent-hot-pink/50 hover:bg-accent-hot-pink/20">
+                    <div class="w-6 h-6 mr-3 flex items-center justify-center">
+                        <img src="https://cdn.discordapp.com/icons/1340879717464670279/716de26a08eab9887944ae5ecc21d6f7.png?size=512" alt="My Community Discord icon" onerror="handleImageError(this, 'TXV')" class="w-6 h-6 object-contain rounded-md">
+                    </div>
+                    <span>Cali RP</span>
+                </a>
+                <a href="https://www.roblox.com/users/1515085030/profile" target="_blank" rel="noopener noreferrer" class="link-button flex items-center justify-center w-full p-4 bg-accent-hot-pink/10 text-accent-gray font-semibold rounded-lg border border-accent-hot-pink/50 hover:bg-accent-hot-pink/20">
+                    <div class="w-6 h-6 mr-3 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-accent-hot-pink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="4" ry="4"></rect>
+                            <circle cx="12" cy="12" r="4"></circle>
+                        </svg>
+                    </div>
+                    <span>My Roblox Profile</span>
+                </a>
+                <a href="https://www.roblox.com/games/127099328892274/Last-Stand" target="_blank" rel="noopener noreferrer" class="link-button flex items-center justify-center w-full p-4 bg-accent-hot-pink/10 text-accent-gray font-semibold rounded-lg border border-accent-hot-pink/50 hover:bg-accent-hot-pink/20">
+                    <div class="w-6 h-6 mr-3 flex items-center justify-center">
+                        <!-- UPDATED: Replaced SVG with the Roblox logo URL -->
+                        <img src="https://static.wikia.nocookie.net/roblox/images/4/4d/BlueRobloxLogo.png/revision/latest/scale-to-width-down/250?cb=20250626184501" alt="Roblox Game Logo" onerror="handleImageError(this, 'LS')" class="w-6 h-6 object-contain rounded-md">
+                    </div>
+                    <span>Play Last Stand</span>
+                </a>
+            `);
+        }
+
+        // Music Play Function (Simplified for immediate autoplay attempt)
+        function playMusic() {
+            const audioPromise = document.getElementById('background-audio').play();
+            
+            if (audioPromise !== undefined) {
+                audioPromise.then(() => {
+                    console.log("Music autoplay started successfully.");
+                }).catch((e) => {
+                    // Autoplay blocked by browser. This is common and expected.
+                    console.warn("Music autoplay blocked by browser. User interaction required:", e);
+                });
+            }
+        }
+
+        // Function to update the UI based on static profile data
+        const updateUI = () => {
+            // Hardcoded Image URL
+            // This is the user's pfp (Discord avatar) and background image
+            const discordAvatarUrl = "https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png"; 
+
+            // Update Text Content
+            document.getElementById('profile-name').textContent = "TEXVERSA";
+            document.getElementById('mini-profile-name').textContent = "TEXVERSA";
+            document.getElementById('state-emoji').textContent = "💖";
+            document.getElementById('last-seen-time').textContent = "💗H O P E";
+
+            // Update Images - using the .png version
+            document.getElementById('main-profile-pic').src = discordAvatarUrl;
+            document.getElementById('mini-profile-pic').src = discordAvatarUrl;
+
+            // Update Background (SET TO THE SAME DISCORD AVATAR URL AS THE PFP)
+            document.getElementById('background-container').style.backgroundImage = `url('${discordAvatarUrl}')`;
+        };
+        
+        // Function to handle image loading errors (fallbacks to a simple placeholder)
+        window.handleImageError = (imgElement, defaultText = 'PFP') => {
+            // No local variable for width/height
+            imgElement.src = `https://placehold.co/${imgElement.width || (imgElement.id === 'main-profile-pic' ? 120 : 40)}x${imgElement.height || (imgElement.id === 'main-profile-pic' ? 120 : 40)}/FF69B4/000000?text=${defaultText}`;
+            console.error("Image failed to load:", imgElement.src);
+            
+            // Notify the user that the external image couldn't load
+            if (imgElement.id === 'main-profile-pic') {
+                showUserMessage(`Error loading profile image. Displaying placeholder.`, true);
+            }
+        };
+
+        // Initialize Firebase services without local variables, storing results on window
+        async function initializeApp() {
+            try {
+                // Hardcoding firebaseConfig access
+                window.firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                window.app = window.firebase.initializeApp(window.firebaseConfig);
+                window.db = window.firebase.getFirestore(window.app);
+                window.auth = window.firebase.getAuth(window.app);
+                
+                // Authenticate user
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await window.firebase.signInWithCustomToken(window.auth, __initial_auth_token);
+                } else {
+                    await window.firebase.signInAnonymously(window.auth);
+                }
+                // Store userId on window
+                window.userId = window.auth.currentUser?.uid || crypto.randomUUID();
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                showUserMessage("Error: Could not connect to the database. View count may not update.", true);
+            }
+        }
+
+        // Initialize everything on load
+        window.onload = async () => {
+            await initializeApp(); // Initialize global Firebase instances first
+            updateUI();
+            renderLinks();
+            incrementViewCount();
+            playMusic();
+        };
+
+    </script>
+</body>
+</html>
