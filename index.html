@@ -91,29 +91,6 @@
             pointer-events: none;
             z-index: -10;
         }
-        
-        /* Custom style for the music start button */
-        #start-music-btn {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 60;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #1A1A1A; /* Dark text */
-            background-color: #FF69B4; /* Hot Pink */
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 0 10px rgba(255, 105, 180, 0.8);
-        }
-
-        #start-music-btn:hover {
-            background-color: #FF88C7;
-            box-shadow: 0 0 15px #FF69B4;
-        }
     </style>
 </head>
 <body class="bg-primary-dark flex items-center justify-center min-h-screen p-4 font-sans relative">
@@ -124,12 +101,10 @@
     <!-- Floating Particles Container (Empty now, but kept for JS compatibility if needed later) -->
     <div id="particles-container" class="absolute inset-0 z-[-1]"></div>
     
-    <!-- SPOT 1: Music Start Button -->
-    <!-- Initially visible, hidden after clicking (handled in JS) -->
-    <button id="start-music-btn" style="display: none;">▶ Start Music</button>
+    <!-- NOTE: The floating music button was removed -->
 
     <!-- SPOT 2: Background Music YouTube Iframe (Hidden) -->
-    <!-- Note: We are using the YouTube API script below to control the player, and removed the mute=1 parameter -->
+    <!-- Note: We are using the YouTube API script below to control the player. -->
     <iframe 
         id="youtube-player" 
         src="https://www.youtube.com/embed/lSD_L-xic9o?enablejsapi=1&autoplay=1&loop=1&playlist=lSD_L-xic9o&controls=0&modestbranding=1&rel=0" 
@@ -190,6 +165,23 @@
             <!-- Dynamic Link Buttons will be injected here by JavaScript -->
         </div>
 
+        <!-- NEW: Inline Music Player Controls (visible once player is ready) -->
+        <div id="music-controls-container" class="mb-4 pt-4 border-t border-accent-hot-pink/30 flex items-center justify-between transition-opacity duration-500 opacity-0" style="display: none;">
+            <div class="flex items-center space-x-3">
+                <!-- Play/Pause Button - Uses the same ID for easy JS referencing -->
+                <button id="music-toggle-btn" class="w-10 h-10 bg-accent-hot-pink hover:bg-pink-400 text-primary-dark rounded-full flex items-center justify-center transition-all duration-200 shadow-glitch">
+                    <!-- Icon will be dynamically set by JS (Play/Pause SVG paths) -->
+                    <svg id="music-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current" viewBox="0 0 24 24">
+                        <!-- Initial icon path will be set in JS (Play icon) -->
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </button>
+                <span class="text-xs font-medium text-accent-gray tracking-wide">Background Track</span>
+            </div>
+            <!-- Time Display (0:00 / 0:00) -->
+            <div id="music-time" class="text-sm font-mono text-status-light-pink">0:00 / 0:00</div>
+        </div>
+        
         <!-- View Count Footer -->
         <div class="absolute bottom-4 left-4 flex items-center space-x-1 text-gray-500 text-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -205,12 +197,51 @@
 
     <script type="module">
         // Global variables for Firebase access (stored on window)
-        // Global variables for Firebase access (stored on window)
         // window.firebase, window.db, window.auth, window.userId are initialized in initializeApp()
         
         // --- YouTube Player Globals ---
         let player;
-        const musicButton = document.getElementById('start-music-btn');
+        const musicButton = document.getElementById('music-toggle-btn');
+        const musicIcon = document.getElementById('music-icon');
+        const musicTimeDisplay = document.getElementById('music-time');
+        const musicControlsContainer = document.getElementById('music-controls-container');
+
+        let isPlaying = false; 
+        let timeUpdateInterval;
+
+        // Helper function to format seconds into m:ss format
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+        }
+        
+        // Function to set the icon based on playback state (SVG paths)
+        function setMusicIcon(isCurrentlyPlaying) {
+            // Play icon (triangle)
+            const playPath = "M8 5v14l11-7z"; 
+            // Pause icon (two vertical bars)
+            const pausePath = "M6 19h4V5H6v14zm8-14v14h4V5h-4z"; 
+            
+            musicIcon.innerHTML = `<path d="${isCurrentlyPlaying ? pausePath : playPath}"/>`;
+        }
+        
+        // Function to update the time display every second
+        function updateTimeDisplay() {
+            if (player && player.getCurrentTime && player.getDuration) {
+                const currentTime = player.getCurrentTime();
+                const duration = player.getDuration();
+                
+                musicTimeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+                
+                // Manual loop check (in case loop=1 fails or is interrupted)
+                // If the player is playing and is very close to the end, seek to start
+                if (isPlaying && currentTime >= duration - 0.5 && duration > 0) { 
+                    player.seekTo(0);
+                    player.playVideo();
+                }
+            }
+        }
 
         // This function is called automatically by the YouTube Iframe API script
         window.onYouTubeIframeAPIReady = function() {
@@ -221,6 +252,7 @@
                     // Set the player variable from the global object
                     events: {
                         'onReady': onPlayerReady,
+                        'onStateChange': onPlayerStateChange,
                         'onError': onPlayerError
                     }
                 });
@@ -231,8 +263,39 @@
 
         function onPlayerReady(event) {
             console.log("YouTube Player is ready.");
-            // Show the button only after the player is ready, allowing user to start music
-            musicButton.style.display = 'block';
+            // Show the controls container only after the player is ready
+            musicControlsContainer.style.display = 'flex'; 
+            musicControlsContainer.classList.remove('opacity-0');
+            
+            // Due to browser autoplay restrictions, we must start it muted and paused.
+            event.target.mute();
+            event.target.playVideo(); // Start muted video in the background
+            
+            // Initialize icon to 'Play' and time display
+            setMusicIcon(false);
+            updateTimeDisplay(); 
+            
+            // Start the interval for time display updates
+            timeUpdateInterval = setInterval(updateTimeDisplay, 1000); 
+        }
+        
+        // Function to handle player state changes (like playing, paused, ended)
+        function onPlayerStateChange(event) {
+            // YT.PlayerState.PLAYING (1) and YT.PlayerState.PAUSED (2)
+            if (event.data === YT.PlayerState.PLAYING) {
+                isPlaying = true;
+                setMusicIcon(true);
+                console.log("Music is playing.");
+            } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+                isPlaying = false;
+                setMusicIcon(false);
+                console.log("Music is paused/ended.");
+                
+                // If ended, ensure it seeks to the beginning for the next play if loop fails
+                if (event.data === YT.PlayerState.ENDED) {
+                     player.seekTo(0);
+                }
+            }
         }
 
         function onPlayerError(event) {
@@ -240,21 +303,33 @@
             showUserMessage("Music playback failed. (Error code: " + event.data + ")", true);
         }
         
-        // Event listener to start music on button click
+        // Event listener to toggle music on button click
         musicButton.addEventListener('click', () => {
-            if (player) {
-                try {
-                    // Play the video and un-hide the button
-                    player.playVideo();
-                    musicButton.style.display = 'none'; // Hide the button after starting
-                    showUserMessage("Music started successfully!");
-                } catch (e) {
-                    console.error("Failed to start music on click:", e);
-                    showUserMessage("Could not start music. Try clicking again.", true);
-                }
-            } else {
-                showUserMessage("Music player not yet initialized.", true);
+            if (!player) {
+                 showUserMessage("Music player not yet initialized.", true);
+                 return;
             }
+            
+            try {
+                if (isPlaying) {
+                    player.pauseVideo();
+                    player.mute(); // Mute on pause
+                    showUserMessage("Music paused.");
+                } else {
+                    player.unMute();
+                    player.playVideo();
+                    showUserMessage("Music started successfully!");
+                }
+                // onPlayerStateChange handles setting the icon and isPlaying state
+            } catch (e) {
+                console.error("Failed to toggle music:", e);
+                showUserMessage("Could not toggle music. Try clicking again.", true);
+            }
+        });
+        
+        // Clear interval on window unload to prevent memory leak
+        window.addEventListener('beforeunload', () => {
+            clearInterval(timeUpdateInterval);
         });
 
 
@@ -349,7 +424,10 @@
             document.getElementById('link-buttons-container').insertAdjacentHTML('beforeend', `
                 <a href="https://discord.gg/Bn3SJTpwJF" target="_blank" rel="noopener noreferrer" class="link-button flex items-center justify-center w-full p-4 bg-accent-hot-pink/10 text-accent-gray font-semibold rounded-lg border border-accent-hot-pink/50 hover:bg-accent-hot-pink/20">
                     <div class="w-6 h-6 mr-3 flex items-center justify-center">
-                        <img src="https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png" alt="My Community Discord icon" onerror="handleImageError(this, 'TXV')" class="w-6 h-6 object-contain rounded-md">
+                        <!-- UPDATED: Replaced Discord Avatar URL with a generic, clean Discord SVG icon (color: Discord blue) -->
+                        <svg class="w-6 h-6 text-[#7289DA]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M19.782 5.051a8.423 8.423 0 00-6.26-1.556 12.33 12.33 0 00-1.844.755c-.296.128-.598.243-.905.356a8.42 8.42 0 00-6.26 1.556C1.983 6.94 1.3 10.322 1.3 13.914c0 1.25.32 2.474.92 3.632.484.956 1.157 1.776 2.072 2.417 1.18.826 2.508 1.455 3.91 1.831a.5.5 0 00.58-.49.5.5 0 00-.47-.54c-1.27-.34-2.464-.896-3.535-1.58-.696-.445-1.283-1.002-1.76-1.61-.41-.52-.667-1.12-.76-1.76-.115-.79-.115-1.59 0-2.38.087-.64.34-1.24.75-1.76.48-.607 1.07-1.164 1.76-1.61 1.07-.684 2.265-1.24 3.535-1.58.113-.03.227-.06.34-.09a.5.5 0 00.32-.49.5.5 0 00-.54-.47c-1.4.376-2.73 1.005-3.91 1.83-2.06 1.44-3.13 3.55-3.13 5.86 0 3.59 2.1 6.97 5.92 8.41.905.356 1.844.755 2.825 1.096 1.25.43 2.56.77 3.96.96 1.18.16 2.4.24 3.68.24 3.59 0 6.97-1.07 8.41-5.92.34-.905.755-1.844 1.096-2.825.43-1.25.77-2.56.96-3.96.16-1.18.24-2.4.24-3.68 0-3.59-1.07-6.97-5.92-8.41z"/>
+                        </svg>
                     </div>
                     <span>Cali RP</span>
                 </a>
