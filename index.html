@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tactical Profile Card</title>
+    <!-- UPDATED: Title set to the target name (will be overwritten by JS animation) -->
+    <title>Texversa</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SPOT 4: Firebase Imports (Firestore & Auth) -->
@@ -128,7 +129,8 @@
 
         <!-- Username (HTML updated to default to TEXVERSA) -->
         <div class="text-center mb-4">
-            <span id="profile-name" class="text-4xl font-black text-accent-hot-pink uppercase tracking-widest drop-shadow-xl">TEXVERSA</span>
+            <!-- Name Animation Target: Removed uppercase and static text -->
+            <span id="profile-name" class="text-4xl font-black text-accent-hot-pink tracking-widest drop-shadow-xl"></span>
         </div>
 
         <!-- State/Status Emoji -->
@@ -192,6 +194,87 @@
                 document.getElementById('message-box').classList.remove('pointer-events-auto');
             }, 5000);
         }
+        
+        // === TITLE TYPING ANIMATION LOGIC (For Browser Tab) ===
+        let isTitleTyping = true;
+        let titleIndex = 0;
+        const targetTitle = "Texversa";
+
+        function startTitleTypingAnimation() {
+            let currentTitle = document.title;
+            let speed = isTitleTyping ? 300 : 150; // Slower typing, faster deletion for title
+
+            if (isTitleTyping) {
+                if (titleIndex < targetTitle.length) {
+                    // Build the title letter by letter
+                    currentTitle = targetTitle.substring(0, titleIndex + 1);
+                    titleIndex++;
+                } else {
+                    isTitleTyping = false;
+                    setTimeout(startTitleTypingAnimation, 2000); // Pause after typing
+                    return;
+                }
+            } else {
+                if (currentTitle.length > 0) {
+                    // Delete the title letter by letter
+                    currentTitle = currentTitle.substring(0, currentTitle.length - 1);
+                } else {
+                    isTitleTyping = true;
+                    titleIndex = 0;
+                    setTimeout(startTitleTypingAnimation, 1000); // Pause after deleting
+                    return;
+                }
+            }
+            
+            document.title = currentTitle;
+            setTimeout(startTitleTypingAnimation, speed);
+        }
+        // === END TITLE TYPING ANIMATION LOGIC ===
+
+        // === CARD NAME TYPING ANIMATION LOGIC ===
+        let isTyping = true;
+        let index = 0;
+        const targetName = "Texversa";
+        const element = document.getElementById('profile-name');
+
+        function startNameTypingAnimation() {
+            if (!element) return;
+
+            let currentText = element.textContent;
+            let speed = isTyping ? 150 : 100; // Faster deletion
+
+            if (isTyping) {
+                if (index < targetName.length) {
+                    currentText += targetName.charAt(index);
+                    index++;
+                    element.textContent = currentText + '|'; // Add cursor
+                } else {
+                    isTyping = false;
+                    setTimeout(startNameTypingAnimation, 1500); // Pause after typing
+                    return;
+                }
+            } else {
+                if (currentText.length > 0) {
+                    currentText = currentText.substring(0, currentText.length - 1);
+                    element.textContent = currentText;
+                } else {
+                    isTyping = true;
+                    index = 0;
+                    element.textContent = ''; // Clear cursor before retyping
+                    setTimeout(startNameTypingAnimation, 500); // Pause after deleting
+                    return;
+                }
+            }
+            
+            // Toggle cursor at the end (for a brief moment before next char)
+            if (currentText.length > 0) {
+                element.textContent = currentText.replace(/\|$/, '') + (currentText.length % 2 === 0 ? ' ' : '|');
+            }
+
+            setTimeout(startNameTypingAnimation, speed);
+        }
+        // === END CARD NAME TYPING ANIMATION LOGIC ===
+
 
         // View Count Logic
         async function incrementViewCount() {
@@ -256,16 +339,14 @@
             `);
         }
 
-        // Removed playMusic() function as it's no longer needed (iframe handles playback)
-
         // Function to update the UI based on static profile data
         const updateUI = () => {
             // Hardcoded Image URL
             // This is the user's pfp (Discord avatar) and background image
             const discordAvatarUrl = "https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png"; 
 
-            // Update Text Content
-            document.getElementById('profile-name').textContent = "TEXVERSA";
+            // Update Text Content (Name is now handled by animation)
+            // document.getElementById('profile-name').textContent = "TEXVERSA"; <-- Removed for animation
             document.getElementById('mini-profile-name').textContent = "TEXVERSA";
             document.getElementById('state-emoji').textContent = "💖";
             document.getElementById('last-seen-time').textContent = "💗H O P E";
@@ -302,14 +383,16 @@
                 // Authenticate user
                 if (typeof __initial_auth_token !== 'undefined') {
                     await window.firebase.signInWithCustomToken(window.auth, __initial_auth_token);
+                    console.log("Firebase: Authenticated with custom token.");
                 } else {
                     await window.firebase.signInAnonymously(window.auth);
+                    console.log("Firebase: Signed in anonymously.");
                 }
                 // Store userId on window
                 window.userId = window.auth.currentUser?.uid || crypto.randomUUID();
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                showUserMessage("Error: Could not connect to the database. View count may not update.", true);
+                showUserMessage("Error: Could not connect to the database. View count may not update. Check console for details.", true);
             }
         }
 
@@ -319,7 +402,8 @@
             updateUI();
             renderLinks();
             incrementViewCount();
-            // Removed playMusic() call. Iframe handles playback attempt.
+            startNameTypingAnimation(); // Main Card Animation
+            startTitleTypingAnimation(); // Browser Tab Animation (NEW)
         };
 
     </script>
