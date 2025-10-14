@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- UPDATED: Title set to the target name (will now remain static) -->
+    <!-- Title is set dynamically via JavaScript for the typing animation -->
     <title>Texversa</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -44,7 +44,7 @@
             }
         }
     </script>
-    <!-- Custom CSS for background -->
+    <!-- Custom CSS for background and the floating music button -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         
@@ -55,7 +55,6 @@
             left: 0;
             width: 100%;
             height: 100%;
-            /* Sets background size to 100% width and 100% height to stretch perfectly */
             background-size: 100% 100%; 
             background-position: center;
             filter: brightness(0.4) contrast(1.5);
@@ -91,6 +90,21 @@
             pointer-events: none;
             z-index: -10;
         }
+
+        /* NEW: Floating Music Button Position */
+        #floating-music-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 40;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        #floating-music-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px #FF69B4;
+        }
     </style>
 </head>
 <body class="bg-primary-dark flex items-center justify-center min-h-screen p-4 font-sans relative">
@@ -98,13 +112,19 @@
     <!-- Background Image Container -->
     <div id="background-container"></div>
     
-    <!-- Floating Particles Container (Empty now, but kept for JS compatibility if needed later) -->
+    <!-- Floating Particles Container -->
     <div id="particles-container" class="absolute inset-0 z-[-1]"></div>
     
-    <!-- NOTE: The floating music button was removed -->
+    <!-- NEW: Floating Music Toggle Button -->
+    <button id="floating-music-toggle" class="p-3 bg-accent-hot-pink hover:bg-pink-400 text-primary-dark rounded-full flex items-center justify-center shadow-glitch">
+        <!-- Icon will be dynamically set by JS (Play/Pause SVG paths) -->
+        <svg id="music-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current" viewBox="0 0 24 24">
+            <!-- Initial icon path will be set in JS (Play icon) -->
+            <path d="M8 5v14l11-7z"/>
+        </svg>
+    </button>
 
     <!-- SPOT 2: Background Music YouTube Iframe (Hidden) -->
-    <!-- Note: We are using the YouTube API script below to control the player. -->
     <iframe 
         id="youtube-player" 
         src="https://www.youtube.com/embed/lSD_L-xic9o?enablejsapi=1&autoplay=1&loop=1&playlist=lSD_L-xic9o&controls=0&modestbranding=1&rel=0" 
@@ -122,7 +142,6 @@
         <!-- Large Profile Image -->
         <div class="flex justify-center mb-6">
             <div class="relative w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-gray-700 to-accent-hot-pink shadow-glitch">
-                <!-- Image uses object-cover to fit perfectly, styled for a tactical/dark look -->
                 <img id="main-profile-pic" src="https://placehold.co/120x120/1A1A1A/FFFFFF?text=PFP" alt="Profile Picture" class="w-full h-full object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
                 <div class="absolute inset-0 rounded-full border-2 border-accent-hot-pink/40"></div>
             </div>
@@ -130,7 +149,6 @@
 
         <!-- Username (Main Static Title - ALL CAPS) -->
         <div class="text-center mb-4">
-            <!-- This span holds the main aggressive name (TEXVERSA) -->
             <span id="profile-name" class="text-4xl font-black text-accent-hot-pink tracking-widest drop-shadow-xl">TEXVERSA</span>
         </div>
 
@@ -147,40 +165,21 @@
                 
                 <div class="text-left">
                     <div class="flex items-center space-x-2">
-                        <!-- Mini Profile Name (Now back to ALL CAPS) -->
                         <span id="mini-profile-name" class="text-sm font-semibold text-accent-gray">TEXVERSA</span>
                         <!-- Online Status Indicator (Now Light Pink) -->
                         <div class="w-2 h-2 bg-status-light-pink rounded-full shadow-lg shadow-status-light-pink/60 animate-pulse"></div>
                     </div>
-                    <!-- UPDATED STATUS TEXT -->
                     <span id="last-seen-time" class="text-xs text-status-light-pink">💗H O P E</span>
                 </div>
             </div>
         </div>
-
-        <!-- NOTE: The App Icons / Status Icons block was removed here -->
         
         <!-- SPOT 3: Link Buttons Container -->
         <div id="link-buttons-container" class="space-y-4 mb-4">
             <!-- Dynamic Link Buttons will be injected here by JavaScript -->
         </div>
 
-        <!-- NEW: Inline Music Player Controls (visible once player is ready) -->
-        <div id="music-controls-container" class="mb-4 pt-4 border-t border-accent-hot-pink/30 flex items-center justify-between transition-opacity duration-500 opacity-0" style="display: none;">
-            <div class="flex items-center space-x-3">
-                <!-- Play/Pause Button - Uses the same ID for easy JS referencing -->
-                <button id="music-toggle-btn" class="w-10 h-10 bg-accent-hot-pink hover:bg-pink-400 text-primary-dark rounded-full flex items-center justify-center transition-all duration-200 shadow-glitch">
-                    <!-- Icon will be dynamically set by JS (Play/Pause SVG paths) -->
-                    <svg id="music-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current" viewBox="0 0 24 24">
-                        <!-- Initial icon path will be set in JS (Play icon) -->
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                </button>
-                <span class="text-xs font-medium text-accent-gray tracking-wide">Background Track</span>
-            </div>
-            <!-- Time Display (0:00 / 0:00) -->
-            <div id="music-time" class="text-sm font-mono text-status-light-pink">0:00 / 0:00</div>
-        </div>
+        <!-- NOTE: Inline music controls are removed since we are using the floating button now -->
         
         <!-- View Count Footer -->
         <div class="absolute bottom-4 left-4 flex items-center space-x-1 text-gray-500 text-sm">
@@ -201,20 +200,11 @@
         
         // --- YouTube Player Globals ---
         let player;
-        const musicButton = document.getElementById('music-toggle-btn');
+        // The music button now references the floating element
+        const musicButton = document.getElementById('floating-music-toggle'); 
         const musicIcon = document.getElementById('music-icon');
-        const musicTimeDisplay = document.getElementById('music-time');
-        const musicControlsContainer = document.getElementById('music-controls-container');
 
         let isPlaying = false; 
-        let timeUpdateInterval;
-
-        // Helper function to format seconds into m:ss format
-        function formatTime(seconds) {
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = Math.floor(seconds % 60);
-            return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-        }
         
         // Function to set the icon based on playback state (SVG paths)
         function setMusicIcon(isCurrentlyPlaying) {
@@ -226,30 +216,11 @@
             musicIcon.innerHTML = `<path d="${isCurrentlyPlaying ? pausePath : playPath}"/>`;
         }
         
-        // Function to update the time display every second
-        function updateTimeDisplay() {
-            if (player && player.getCurrentTime && player.getDuration) {
-                const currentTime = player.getCurrentTime();
-                const duration = player.getDuration();
-                
-                musicTimeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
-                
-                // Manual loop check (in case loop=1 fails or is interrupted)
-                // If the player is playing and is very close to the end, seek to start
-                if (isPlaying && currentTime >= duration - 0.5 && duration > 0) { 
-                    player.seekTo(0);
-                    player.playVideo();
-                }
-            }
-        }
-
         // This function is called automatically by the YouTube Iframe API script
         window.onYouTubeIframeAPIReady = function() {
-            // Get the iframe element
             const iframe = document.getElementById('youtube-player');
             if (iframe) {
                 player = new YT.Player('youtube-player', {
-                    // Set the player variable from the global object
                     events: {
                         'onReady': onPlayerReady,
                         'onStateChange': onPlayerStateChange,
@@ -263,38 +234,34 @@
 
         function onPlayerReady(event) {
             console.log("YouTube Player is ready.");
-            // Show the controls container only after the player is ready
-            musicControlsContainer.style.display = 'flex'; 
-            musicControlsContainer.classList.remove('opacity-0');
             
             // Due to browser autoplay restrictions, we must start it muted and paused.
             event.target.mute();
             event.target.playVideo(); // Start muted video in the background
             
-            // Initialize icon to 'Play' and time display
-            setMusicIcon(false);
-            updateTimeDisplay(); 
-            
-            // Start the interval for time display updates
-            timeUpdateInterval = setInterval(updateTimeDisplay, 1000); 
+            // Initialize icon to 'Play' 
+            setMusicIcon(false); // Player is technically playing, but muted and considered 'paused' for UX
         }
         
         // Function to handle player state changes (like playing, paused, ended)
         function onPlayerStateChange(event) {
-            // YT.PlayerState.PLAYING (1) and YT.PlayerState.PAUSED (2)
-            if (event.data === YT.PlayerState.PLAYING) {
-                isPlaying = true;
-                setMusicIcon(true);
-                console.log("Music is playing.");
-            } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
-                isPlaying = false;
-                setMusicIcon(false);
-                console.log("Music is paused/ended.");
-                
-                // If ended, ensure it seeks to the beginning for the next play if loop fails
-                if (event.data === YT.PlayerState.ENDED) {
-                     player.seekTo(0);
-                }
+            // Only update state if the user has explicitly clicked the button (unmuted/muted)
+            if (!player) return;
+
+            const isCurrentlyUnmuted = player.isMuted() === false;
+            
+            // The UX logic: If the video is playing AND unmuted, we show 'Pause' icon (isPlaying=true).
+            // If the video is muted or paused, we show 'Play' icon (isPlaying=false).
+            isPlaying = (event.data === YT.PlayerState.PLAYING && isCurrentlyUnmuted);
+            
+            setMusicIcon(isPlaying);
+
+            // Manual loop check (in case loop=1 fails or is interrupted)
+            if (event.data === YT.PlayerState.ENDED) { 
+                 player.seekTo(0);
+                 if (isCurrentlyUnmuted) {
+                    player.playVideo();
+                 }
             }
         }
 
@@ -311,34 +278,31 @@
             }
             
             try {
-                if (isPlaying) {
+                if (player.isMuted() === false) {
+                    // It is currently playing (unmuted), so pause/mute it
+                    player.mute();
                     player.pauseVideo();
-                    player.mute(); // Mute on pause
+                    isPlaying = false;
                     showUserMessage("Music paused.");
                 } else {
+                    // It is currently muted/paused, so unmute/play it
                     player.unMute();
                     player.playVideo();
+                    isPlaying = true;
                     showUserMessage("Music started successfully!");
                 }
-                // onPlayerStateChange handles setting the icon and isPlaying state
+                setMusicIcon(isPlaying);
             } catch (e) {
                 console.error("Failed to toggle music:", e);
                 showUserMessage("Could not toggle music. Try clicking again.", true);
             }
         });
         
-        // Clear interval on window unload to prevent memory leak
-        window.addEventListener('beforeunload', () => {
-            clearInterval(timeUpdateInterval);
-        });
-
-
         // --- Core Application Logic (Rest of the previous code) ---
 
         // Display user message in a fixed box (replacing alert/confirm)
         function showUserMessage(message, isError = false) {
             document.getElementById('message-box').textContent = message;
-            // Update message box color scheme
             document.getElementById('message-box').className = `p-3 text-sm rounded-lg shadow-xl transition-opacity duration-300 opacity-100 pointer-events-auto ${isError ? 'bg-red-900 text-accent-hot-pink border border-accent-hot-pink' : 'bg-card-dark text-status-light-pink border border-status-light-pink'}`;
             
             setTimeout(() => {
@@ -347,25 +311,60 @@
             }, 5000);
         }
         
-        // === TITLE TYPING ANIMATION LOGIC (REMOVED) ===
-        // The title is now static via the <title> tag.
+        // === TITLE TYPING ANIMATION LOGIC (RE-IMPLEMENTED) ===
+        const titleText = "Texversa";
+        let titleIndex = 0;
+        let isDeleting = false;
+        
+        function startTitleTypingAnimation() {
+            const titleElement = document.querySelector('title');
+            let currentText = titleElement.textContent;
+
+            if (isDeleting) {
+                // Delete one character
+                currentText = currentText.substring(0, currentText.length - 1);
+            } else {
+                // Type one character
+                currentText = titleText.substring(0, titleIndex + 1);
+            }
+
+            titleElement.textContent = currentText;
+
+            // Determine next state
+            let typeSpeed = 150; // Speed when typing
+
+            if (isDeleting) {
+                typeSpeed = 100; // Speed when deleting
+                if (currentText === '') {
+                    isDeleting = false;
+                    titleIndex = 0;
+                    typeSpeed = 500; // Pause before starting to type again
+                }
+            } else {
+                if (currentText === titleText) {
+                    isDeleting = true;
+                    typeSpeed = 2000; // Pause before deleting starts
+                } else {
+                    titleIndex++;
+                }
+            }
+
+            // Loop the function
+            setTimeout(startTitleTypingAnimation, typeSpeed);
+        }
         // === END TITLE TYPING ANIMATION LOGIC ===
 
 
         // View Count Logic
         async function incrementViewCount() {
             if (!window.db) {
-                document.getElementById('view-count').textContent = 'Offline'; // Explicitly set to 'Offline' if connection fails
+                document.getElementById('view-count').textContent = 'Offline'; 
                 return;
             }
             
-            // Hardcoding constants directly within the function call
-            // VIEW_COUNT_DOC_ID = 'main-profile-views'
-            // appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'
             const viewDocRef = window.firebase.doc(window.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'profileViews', 'main-profile-views');
 
             try {
-                // Use a transaction to safely increment the count and read the new value
                 await window.firebase.runTransaction(window.db, async (transaction) => {
                     const viewDoc = await transaction.get(viewDocRef);
                     
@@ -373,7 +372,6 @@
                         transaction.update(viewDocRef, { count: viewDoc.data().count + 1 });
                         document.getElementById('view-count').textContent = (viewDoc.data().count + 1).toLocaleString();
                     } else {
-                        // Document doesn't exist, create it
                         transaction.set(viewDocRef, { count: 1, createdBy: window.userId });
                         document.getElementById('view-count').textContent = 1;
                     }
@@ -384,15 +382,13 @@
             }
         }
         
-        // Function to generate and render link buttons (No local variable for linkData array)
+        // Function to generate and render link buttons
         function renderLinks() {
-            document.getElementById('link-buttons-container').innerHTML = ''; // Clear existing
+            document.getElementById('link-buttons-container').innerHTML = ''; 
             
-            // Hardcoding SVG content
             document.getElementById('link-buttons-container').insertAdjacentHTML('beforeend', `
                 <a href="https://discord.gg/Bn3SJTpwJF" target="_blank" rel="noopener noreferrer" class="link-button flex items-center justify-center w-full p-4 bg-accent-hot-pink/10 text-accent-gray font-semibold rounded-lg border border-accent-hot-pink/50 hover:bg-accent-hot-pink/20">
                     <div class="w-6 h-6 mr-3 flex items-center justify-center">
-                        <!-- UPDATED: Using the provided Cali RP Discord server icon URL -->
                         <img src="https://cdn.discordapp.com/icons/1340879717464670279/716de26a08eab9887944ae5ecc21d6f7.png?size=512" alt="Cali RP Logo" onerror="handleImageError(this, 'CR')" class="w-6 h-6 object-contain rounded-full">
                     </div>
                     <span>Cali RP</span>
@@ -408,7 +404,6 @@
                 </a>
                 <a href="https://www.roblox.com/games/127099328892274/Last-Stand" target="_blank" rel="noopener noreferrer" class="link-button flex items-center justify-center w-full p-4 bg-accent-hot-pink/10 text-accent-gray font-semibold rounded-lg border border-accent-hot-pink/50 hover:bg-accent-hot-pink/20">
                     <div class="w-6 h-6 mr-3 flex items-center justify-center">
-                        <!-- UPDATED: Replaced SVG with the Roblox logo URL -->
                         <img src="https://static.wikia.nocookie.net/roblox/images/4/4d/BlueRobloxLogo.png/revision/latest/scale-to-width-down/250?cb=20250626184501" alt="Roblox Game Logo" onerror="handleImageError(this, 'LS')" class="w-6 h-6 object-contain rounded-md">
                     </div>
                     <span>Play Last Stand</span>
@@ -418,46 +413,37 @@
 
         // Function to update the UI based on static profile data
         const updateUI = () => {
-            // Hardcoded Image URL
-            // This is the user's pfp (Discord avatar) and background image
             const discordAvatarUrl = "https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png"; 
 
-            // **UPDATED**: Main and Mini names are now ALL CAPS as requested
             document.getElementById('profile-name').textContent = "TEXVERSA"; 
             document.getElementById('mini-profile-name').textContent = "TEXVERSA";
             document.getElementById('state-emoji').textContent = "💖";
             document.getElementById('last-seen-time').textContent = "💗H O P E";
 
-            // Update Images - using the .png version
             document.getElementById('main-profile-pic').src = discordAvatarUrl;
             document.getElementById('mini-profile-pic').src = discordAvatarUrl;
 
-            // Update Background (SET TO THE SAME DISCORD AVATAR URL AS THE PFP)
             document.getElementById('background-container').style.backgroundImage = `url('${discordAvatarUrl}')`;
         };
         
         // Function to handle image loading errors (fallbacks to a simple placeholder)
         window.handleImageError = (imgElement, defaultText = 'PFP') => {
-            // No local variable for width/height
             imgElement.src = `https://placehold.co/${imgElement.width || (imgElement.id === 'main-profile-pic' ? 120 : 40)}x${imgElement.height || (imgElement.id === 'main-profile-pic' ? 120 : 40)}/FF69B4/000000?text=${defaultText}`;
             console.error("Image failed to load:", imgElement.src);
             
-            // Notify the user that the external image couldn't load
             if (imgElement.id === 'main-profile-pic') {
                 showUserMessage(`Error loading profile image. Displaying placeholder.`, true);
             }
         };
 
-        // Initialize Firebase services without local variables, storing results on window
+        // Initialize Firebase services
         async function initializeApp() {
             try {
-                // Hardcoding firebaseConfig access
                 window.firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
                 window.app = window.firebase.initializeApp(window.firebaseConfig);
                 window.db = window.firebase.getFirestore(window.app);
                 window.auth = window.firebase.getAuth(window.app);
                 
-                // Authenticate user
                 if (typeof __initial_auth_token !== 'undefined') {
                     await window.firebase.signInWithCustomToken(window.auth, __initial_auth_token);
                     console.log("Firebase: Authenticated with custom token.");
@@ -465,11 +451,9 @@
                     await window.firebase.signInAnonymously(window.auth);
                     console.log("Firebase: Signed in anonymously.");
                 }
-                // Store userId on window
                 window.userId = window.auth.currentUser?.uid || crypto.randomUUID();
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                // The 'Error: Could not connect...' message
                 showUserMessage("Error: Could not connect to the database. View count may not update. Check console for details.", true); 
             }
         }
@@ -480,7 +464,8 @@
             updateUI();
             renderLinks();
             incrementViewCount();
-            // Removed startTitleTypingAnimation() call here.
+            // RE-IMPLEMENTED TITLE ANIMATION
+            startTitleTypingAnimation(); 
         };
 
     </script>
