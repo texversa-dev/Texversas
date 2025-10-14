@@ -127,9 +127,9 @@
             </div>
         </div>
 
-        <!-- Username (Now Static) -->
+        <!-- Username (Main Static Title - ALL CAPS) -->
         <div class="text-center mb-4">
-            <!-- This span now holds the static name and is no longer the animation target -->
+            <!-- This span holds the main aggressive name (TEXVERSA) -->
             <span id="profile-name" class="text-4xl font-black text-accent-hot-pink tracking-widest drop-shadow-xl">TEXVERSA</span>
         </div>
 
@@ -146,7 +146,7 @@
                 
                 <div class="text-left">
                     <div class="flex items-center space-x-2">
-                        <!-- Mini Profile Name -->
+                        <!-- Mini Profile Name (Now back to ALL CAPS) -->
                         <span id="mini-profile-name" class="text-sm font-semibold text-accent-gray">TEXVERSA</span>
                         <!-- Online Status Indicator (Now Light Pink) -->
                         <div class="w-2 h-2 bg-status-light-pink rounded-full shadow-lg shadow-status-light-pink/60 animate-pulse"></div>
@@ -235,7 +235,7 @@
         // View Count Logic
         async function incrementViewCount() {
             if (!window.db) {
-                document.getElementById('view-count').textContent = 'Offline';
+                document.getElementById('view-count').textContent = 'Offline'; // Explicitly set to 'Offline' if connection fails
                 return;
             }
             
@@ -301,7 +301,7 @@
             // This is the user's pfp (Discord avatar) and background image
             const discordAvatarUrl = "https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png"; 
 
-            // **UPDATED**: Set the profile name statically. No more animation here.
+            // **UPDATED**: Main and Mini names are now ALL CAPS as requested
             document.getElementById('profile-name').textContent = "TEXVERSA"; 
             document.getElementById('mini-profile-name').textContent = "TEXVERSA";
             document.getElementById('state-emoji').textContent = "💖";
@@ -348,7 +348,8 @@
                 window.userId = window.auth.currentUser?.uid || crypto.randomUUID();
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                showUserMessage("Error: Could not connect to the database. View count may not update. Check console for details.", true);
+                // The 'Error: Could not connect...' message
+                showUserMessage("Error: Could not connect to the database. View count may not update. Check console for details.", true); 
             }
         }
 
