@@ -80,6 +80,16 @@
             transform: translateX(-50%);
             z-index: 50;
         }
+        
+        /* Hidden YouTube Iframe for Background Music */
+        #youtube-player {
+            position: fixed;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: -10;
+        }
     </style>
 </head>
 <body class="bg-primary-dark flex items-center justify-center min-h-screen p-4 font-sans relative">
@@ -90,12 +100,16 @@
     <!-- Floating Particles Container (Empty now, but kept for JS compatibility if needed later) -->
     <div id="particles-container" class="absolute inset-0 z-[-1]"></div>
 
-    <!-- SPOT 2: Background Music Audio Element (Updated source for a chill/jazz lo-fi vibe) -->
-    <audio id="background-audio" loop preload="auto">
-        <source src="https://cdn.pixabay.com/download/audio/2023/10/24/audio_3d1d75c8d2.mp3?filename=lo-fi-jazz-hip-hop-202324.mp3" type="audio/mp3">
-        Your browser does not support the audio element.
-    </audio>
-    <!-- Removed Music Play Button as requested -->
+    <!-- SPOT 2: Background Music YouTube Iframe (Hidden) -->
+    <!-- Parameters: autoplay=1 (attempts to play), loop=1 (loops the song), 
+         playlist=lSD_L-xic9o (required for loop to work), mute=1 (required for autoplay success) -->
+    <iframe 
+        id="youtube-player" 
+        src="https://www.youtube.com/embed/lSD_L-xic9o?autoplay=1&loop=1&playlist=lSD_L-xic9o&mute=1&controls=0&modestbranding=1&rel=0" 
+        frameborder="0" 
+        allow="autoplay; encrypted-media" 
+        allowfullscreen>
+    </iframe>
     
     <!-- Message Box for notifications (e.g., music start success/failure) -->
     <div id="message-box" class="p-3 bg-card-dark text-accent-gray rounded-lg shadow-glitch border border-accent-hot-pink/50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
@@ -242,19 +256,7 @@
             `);
         }
 
-        // Music Play Function (Simplified for immediate autoplay attempt)
-        function playMusic() {
-            const audioPromise = document.getElementById('background-audio').play();
-            
-            if (audioPromise !== undefined) {
-                audioPromise.then(() => {
-                    console.log("Music autoplay started successfully.");
-                }).catch((e) => {
-                    // Autoplay blocked by browser. This is common and expected.
-                    console.warn("Music autoplay blocked by browser. User interaction required:", e);
-                });
-            }
-        }
+        // Removed playMusic() function as it's no longer needed (iframe handles playback)
 
         // Function to update the UI based on static profile data
         const updateUI = () => {
@@ -317,7 +319,7 @@
             updateUI();
             renderLinks();
             incrementViewCount();
-            playMusic();
+            // Removed playMusic() call. Iframe handles playback attempt.
         };
 
     </script>
