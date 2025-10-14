@@ -95,12 +95,12 @@
             z-index: -10;
         }
 
-        /* REINSTATED: Floating Music Button Position */
+        /* NEW: Floating Music Button Position */
         #floating-music-toggle {
             position: fixed;
             top: 1rem;
             right: 1rem;
-            z-index: 90; /* CRITICAL FIX: Increased z-index to ensure it sits on top of all other elements */
+            z-index: 40;
             transition: transform 0.2s, box-shadow 0.2s;
             cursor: pointer;
         }
@@ -119,9 +119,8 @@
     <!-- Floating Particles Container -->
     <div id="particles-container" class="absolute inset-0 z-[-1]"></div>
     
-    <!-- REINSTATED: Floating Music Toggle Button -->
-    <!-- Added pointer-events-none initially to prevent accidental clicks before ready -->
-    <button id="floating-music-toggle" class="p-3 bg-accent-hot-pink hover:bg-pink-400 text-primary-dark rounded-full flex items-center justify-center shadow-glitch pointer-events-none opacity-50">
+    <!-- NEW: Floating Music Toggle Button -->
+    <button id="floating-music-toggle" class="p-3 bg-accent-hot-pink hover:bg-pink-400 text-primary-dark rounded-full flex items-center justify-center shadow-glitch">
         <!-- Icon will be dynamically set by JS (Play/Pause SVG paths) -->
         <svg id="music-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 fill-current" viewBox="0 0 24 24">
             <!-- Initial icon path will be set in JS (Play icon) -->
@@ -147,7 +146,7 @@
         <!-- Large Profile Image -->
         <div class="flex justify-center mb-6">
             <div class="relative w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-gray-700 to-accent-hot-pink shadow-glitch">
-                <img id="main-profile-pic" src="https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.webp" alt="Profile Picture" class="w-full h-full object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
+                <img id="main-profile-pic" src="https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png" alt="Profile Picture" class="w-full h-full object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
                 <div class="absolute inset-0 rounded-full border-2 border-accent-hot-pink/40"></div>
             </div>
         </div>
@@ -166,7 +165,7 @@
         <div class="flex justify-center mb-10">
             <div class="flex items-center space-x-3 p-3 bg-black/40 border border-accent-hot-pink/20 rounded-full shadow-inner">
                 <!-- Small Profile Image -->
-                <img id="mini-profile-pic" src="https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.webp" alt="Mini Profile" class="w-10 h-10 object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
+                <img id="mini-profile-pic" src="https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png" alt="Mini Profile" class="w-10 h-10 object-cover rounded-full filter brightness-125 contrast-150" onerror="handleImageError(this)">
                 
                 <div class="text-left">
                     <div class="flex items-center space-x-2">
@@ -202,9 +201,9 @@
         // window.firebase, window.db, window.auth, window.userId are initialized in initializeApp()
         
         // --- YouTube Player Globals ---
+        let player;
         const musicButton = document.getElementById('floating-music-toggle'); 
         const musicIcon = document.getElementById('music-icon');
-        let player;
         let isPlaying = false; 
         
         // Function to set the icon based on playback state (SVG paths)
@@ -216,14 +215,49 @@
             
             musicIcon.innerHTML = `<path d="${isCurrentlyPlaying ? pausePath : playPath}"/>`;
         }
+        
+        // This function is called automatically by the YouTube Iframe API script
+        window.onYouTubeIframeAPIReady = function() {
+            const iframe = document.getElementById('youtube-player');
+            if (iframe) {
+                player = new YT.Player('youtube-player', {
+                    events: {
+                        'onReady': onPlayerReady,
+                        // We will no longer rely on onStateChange for button updates
+                        'onError': onPlayerError
+                    }
+                });
+            } else {
+                console.error("YouTube iframe element not found.");
+            }
+        };
 
-        // Function containing the music toggle logic
-        function toggleMusic() {
-            // Log for debugging: is the function even being called?
-            console.log("Music button clicked! Attempting to toggle playback."); 
+        function onPlayerReady(event) {
+            console.log("YouTube Player is ready.");
+            
+            // NEW FIX: Only mute the video to prepare it for a user-initiated start.
+            // We do NOT attempt to play or pause here, which often triggers browser blocking.
+            event.target.mute(); 
+            
+            // Initialize icon to 'Play' 
+            setMusicIcon(false);
+            
+             // Start the video on load (still muted) to ensure the stream is buffered. 
+             // This is generally allowed by browsers.
+             event.target.playVideo(); 
+        }
+        
+        // We removed onPlayerStateChange for simplicity, relying on the click handler.
 
+        function onPlayerError(event) {
+            console.error("YouTube Player Error:", event.data);
+            showUserMessage("Music playback failed. (Error code: " + event.data + ")", true);
+        }
+        
+        // Event listener to toggle music on button click
+        musicButton.addEventListener('click', () => {
             if (!player) {
-                 showUserMessage("Music player initialization error. Please refresh.", true);
+                 showUserMessage("Music player not yet initialized.", true);
                  return;
             }
             
@@ -249,49 +283,7 @@
                 console.error("Failed to toggle music:", e);
                 showUserMessage("Could not toggle music. Try clicking again.", true);
             }
-        }
-        
-        // This function is called automatically by the YouTube Iframe API script
-        window.onYouTubeIframeAPIReady = function() {
-            const iframe = document.getElementById('youtube-player');
-            if (iframe) {
-                player = new YT.Player('youtube-player', {
-                    events: {
-                        'onReady': onPlayerReady,
-                        'onError': onPlayerError
-                    }
-                });
-            } else {
-                console.error("YouTube iframe element not found.");
-            }
-        };
-
-        function onPlayerReady(event) {
-            console.log("YouTube Player is ready.");
-            
-            // 1. Mute the video to comply with autoplay policy
-            event.target.mute(); 
-            
-            // 2. Initialize icon to 'Play' (since it's paused and muted)
-            setMusicIcon(false);
-            
-            // 3. FIX: Attach the click listener ONLY when the player object is ready
-            musicButton.addEventListener('click', toggleMusic);
-            console.log("Music button listener attached.");
-
-            // 4. Restore full button functionality and appearance
-            musicButton.classList.remove('pointer-events-none', 'opacity-50');
-            // Explicitly set opacity to 1 and pointer-events to auto
-            musicButton.style.opacity = '1'; 
-            musicButton.style.pointerEvents = 'auto'; // CRITICAL: Explicitly ensures button is clickable
-            
-            showUserMessage("Music controls ready. Click the icon to play.", false);
-        }
-        
-        function onPlayerError(event) {
-            console.error("YouTube Player Error:", event.data);
-            showUserMessage("Music playback failed. (Error code: " + event.data + ")", true);
-        }
+        });
         
         // --- Core Application Logic (Rest of the previous code) ---
 
@@ -379,7 +371,6 @@
         
         // Function to generate and render link buttons
         function renderLinks() {
-            // Removed the music button from here
             document.getElementById('link-buttons-container').innerHTML = ''; 
             
             document.getElementById('link-buttons-container').insertAdjacentHTML('beforeend', `
@@ -409,8 +400,7 @@
 
         // Function to update the UI based on static profile data
         const updateUI = () => {
-            // Updated Discord Avatar URL with .webp extension
-            const discordAvatarUrl = "https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.webp"; 
+            const discordAvatarUrl = "https://cdn.discordapp.com/avatars/758739147443273789/4359991daaba7fe3adab2ed03ad108c4.png"; 
 
             document.getElementById('profile-name').textContent = "TEXVERSA"; 
             document.getElementById('mini-profile-name').textContent = "TEXVERSA";
@@ -478,9 +468,11 @@
 
         // Initialize everything on load
         window.onload = async () => {
+            // NOTE: updateUI and renderLinks are called before initializeApp
+            // so the profile card looks complete while Firebase connects in the background.
             updateUI();
-            renderLinks(); 
-            await initializeApp(); 
+            renderLinks();
+            await initializeApp(); // Initialize global Firebase instances and attempts auth/view count
             
             // Start the title animation after everything else
             startTitleTypingAnimation(); 
